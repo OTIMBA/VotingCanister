@@ -1,0 +1,121 @@
+// A type to represent a poll with a question and a list of options
+type Poll = {
+  question : Text;
+  options : [Text];
+};
+
+// A type to represent a vote with an option index and a voter id
+type Vote = {
+  option : Nat;
+  voter : Principal;
+};
+
+// A type to represent the state of a poll with a list of votes and a flag to indicate if it is open or closed
+type PollState = {
+  poll : Poll;
+  votes : [Vote];
+  open : Bool;
+};
+
+// A type to represent the result of a poll with a list of option counts and the total number of votes
+type PollResult = {
+  counts : [Nat];
+  total : Nat;
+};
+
+// An actor that implements the "Voting" canister
+actor Voting {
+
+  // A variable to store the current poll state
+  var state : ?PollState = null;
+
+  // A public function to create a new poll with a given question and options
+  // Only the creator of the canister can call this function
+  public func createPoll(question : Text, options : [Text]) : async () {
+    // Check if the caller is the creator of the canister
+    if (caller == Principal.fromActor(this)) {
+      // Check if there is no existing poll
+      if (state == null) {
+        // Initialize the poll state with the given question and options, an empty list of votes, and an open flag
+        state := ?{
+          poll = {question; options};
+          votes = [];
+          open = true;
+        };
+      } else {
+        // Throw an error if there is already an existing poll
+        throw "There is already an existing poll";
+      }
+    } else {
+      // Throw an error if the caller is not the creator of the canister
+      throw "Only the creator of the canister can create a new poll";
+    }
+  };
+
+  // A public function to get the current poll state
+  // Anyone can call this function
+  public query func getPoll() : async ?PollState {
+    // Return the current poll state
+    state;
+  };
+
+  // A public function to cast a vote for an option in the current poll
+  // Anyone can call this function
+  public func vote(option : Nat) : async () {
+    // Check if there is an existing poll
+    if (?s := state) {
+      // Check if the poll is open
+      if (s.open) {
+        // Check if the option index is valid
+        if (option < s.poll.options.size()) {
+          // Check if the caller has not already voted in the poll
+          if (not s.votes.exists(func (v) { v.voter == caller })) {
+            // Add the vote to the list of votes in the poll state
+            s.votes.push({option; voter = caller});
+          } else {
+            // Throw an error if the caller has already voted in the poll
+public func closePoll() : async () {
+  // Check if the caller is the creator of the canister
+  if (caller == Principal.fromActor(this)) {
+    // Check if there is an existing poll
+    if (?s := state) {
+      // Check if the poll is open
+      if (s.open) {
+        // Close the poll
+        s.open = false;
+      } else {
+        // Throw an error if the poll is already closed
+        throw "The poll is already closed";
+      }
+    } else {
+      // Throw an error if there is no existing poll
+      throw "There is no existing poll";
+    }
+  } else {
+    // Throw an error if the caller is not the creator of the canister
+    throw "Only the creator of the canister can close the poll";
+  }
+}
+public query func getPollResults() : async ?PollResult {
+  // Check if there is an existing poll
+  if (?s := state) {
+    // Check if the poll is closed
+    if (not s.open) {
+      // Calculate the poll results
+      var counts : [Nat] = [];
+      for (var i in 0..s.poll.options.size()) {
+        counts.push(s.votes.count(func (v) { v.option == i }));
+      }
+      var total : Nat = counts.reduce(func (a, b) { a + b });
+
+      // Return the poll results
+      return ?{counts; total};
+    } else {
+      // Throw an error if the poll is not closed
+      throw "The poll is not closed yet";
+    }
+  } else {
+    // Throw an error if there is no existing poll
+    throw "There is no existing poll";
+  }
+}
